@@ -4,16 +4,36 @@ const { User } = require("./models/user");
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json()); // middleware to read JSON data
 
 app.post("/signup", async (req, res) => {
   const userObj = req.body;
   const user = new User(userObj);
   try {
+    const ALLOWED_FIELDS = [
+      "firstName",
+      "lastName",
+      "emailId",
+      "password",
+      "age",
+      "gender",
+      "photoUrl",
+      "about",
+      "skills",
+    ];
+    const isFieldsAllowed = Object.keys(userObj).every((k) =>
+      ALLOWED_FIELDS.includes(k)
+    );
+    if(!isFieldsAllowed) {
+      throw new Error("Data cannot be saved");
+    }
+    if(userObj?.skills.length > 10) {
+      throw new Error("Skills cannot be more than 10");
+    }
     await user.save();
     res.send("User saved successfully");
   } catch (err) {
-    res.status(400).send("Something went wrong");
+    res.status(400).send("Something went wrong " + err.message);
   }
 });
 
@@ -34,7 +54,7 @@ app.post("/signup", async (req, res) => {
 
 // using findone
 app.get("/user", async (req, res) => {
-  const userEmail = req.body.emailId;
+  const userEmail = req.data.emailId;
   try {
     const user = await User.findOne({ emailId: userEmail });
     if (!user) {
@@ -69,32 +89,50 @@ app.delete("/user", async (req, res) => {
 });
 
 // update user API
+app.patch("/user/:userId", async (req, res) => {
+  const userId = req.params?.userId;
+  const data = req.body;
+  try {
+    const ALLOWED_UPDATES = [
+      "password",
+      "age",
+      "gender",
+      "photoUrl",
+      "about",
+      "skills",
+    ];
+    const isUpdateAllowed = Object.keys(data).every((k) =>
+      ALLOWED_UPDATES.includes(k)
+    );
+    if (!isUpdateAllowed) {
+      throw new Error("Update failed");
+    }
+    if (data?.skills.length > 10) {
+      throw new Error("Skills cannot be add more than 10");
+    }
+    const user = await User.findByIdAndUpdate({ _id: userId }, data, {
+      returnDocument: "after",
+      runValidators: true,
+    });
+    console.log(user);
+    res.send("User data updated succesfully");
+  } catch (err) {
+    res.status(400).send("Something went wrong " + err.message);
+  }
+});
+
+// update user API using emailId
 // app.patch("/user", async (req, res) => {
-//   const userId = req.body.userId;
+//   const userEmail = req.body.emailId;
 //   const data = req.body;
 //   try {
-//     const user = await User.findByIdAndUpdate({ _id: userId }, data, {
-//       returnDocument: "after",
-//     });
+//     const user = await User.findOneAndUpdate({ emailId: userEmail }, data, { new: true });
 //     console.log(user);
-//     res.send("User data updated succesfully");
+//     res.send("User data updated successfully");
 //   } catch (err) {
 //     res.status(400).send("Something went wrong");
 //   }
 // });
-
-// update user API using emailId
-app.patch("/user", async (req, res) => {
-  const userEmail = req.body.emailId;
-  const data = req.body;
-  try {
-    const user = await User.findOneAndUpdate({ emailId: userEmail }, data, { new: true });
-    console.log(user);
-    res.send("User data updated successfully");
-  } catch (err) {
-    res.status(400).send("Something went wrong");
-  }
-});
 
 connectDB()
   .then(() => {
