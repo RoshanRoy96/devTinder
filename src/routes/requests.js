@@ -20,8 +20,8 @@ requestRouter.post(
       }
 
       const toUser = await User.findById(toUserId);
-      if(!toUser) {
-        return res.status(400).json({message: `User not found`});
+      if (!toUser) {
+        return res.status(400).json({ message: `User not found` });
       }
 
       const existingConnectionRequest = await ConnectionRequestModel.findOne({
@@ -47,6 +47,47 @@ requestRouter.post(
       res.json({
         message: `Connection request sent successfully`,
         data,
+      });
+    } catch (err) {
+      res.status(400).send("Error: " + err.message);
+    }
+  }
+);
+
+// API for accepting or rejecting connection requests
+requestRouter.post(
+  "/request/review/:status/:requestId",
+  userAuth,
+  async (req, res) => {
+    try {
+      const loggedInUser = req.user;
+      const status = req.params?.status;
+      const requestId = req.params?.requestId;
+
+      const allowedStatus = ["accepted", "rejected"];
+      if (!allowedStatus.includes(status)) {
+        return res
+          .status(400)
+          .json({ message: `Invalid status type: ${status}` });
+      }
+
+      const connectionRequest = await ConnectionRequestModel.findOne({
+        _id: requestId,
+        toUserId: loggedInUser._id,
+        status: "interested",
+      });
+
+      if (!connectionRequest) {
+        return res
+          .status(400)
+          .json({ message: `Connection request not found` });
+      }
+
+      connectionRequest.status = status;
+      const data = await connectionRequest.save();
+      res.json({
+        message: `Connection request ${status}`,
+        data: data,
       });
     } catch (err) {
       res.status(400).send("Error: " + err.message);
